@@ -995,17 +995,32 @@ main { color:var(--text); }
 .roulette-wheel-svg { display:block; width:100%; height:100%; overflow:visible; }
 .wheel-face { transform-box:view-box; transform-origin:50% 48.485%; }
 .roulette-ball-svg { transform-box:view-box; transform-origin:50% 48.485%; filter:drop-shadow(0 1px 3px #000); }
-.big-wheel.is-spinning .roulette-ball-svg { animation:ballOrbit 3.4s cubic-bezier(.12,.7,.1,1) both; }
+.big-wheel.is-spinning .roulette-ball-svg { animation:ballOrbit 6.6s cubic-bezier(.08,.72,.12,1) both; }
 @keyframes ballOrbit { to { transform:rotate(var(--ball-stop,1800deg)) scaleY(.76); } }
 .roulette-table { border-color:rgba(190,158,91,.55); background:linear-gradient(145deg,#10251c,#09110e); box-shadow:inset 0 0 35px rgba(0,0,0,.48),0 14px 38px rgba(0,0,0,.24); }
 .bet-cell { border-color:rgba(224,211,177,.42); }
 .bet-cell.bet-placed,.outside-bets button.bet-placed { outline:2px solid #ead18d; box-shadow:0 0 15px rgba(234,209,141,.5); }
 .roulette-result { width:60px; height:60px; color:#eee4ce; background:#12110e; border-color:#b9964b; box-shadow:0 6px 20px rgba(0,0,0,.45),inset 0 0 0 3px rgba(255,255,255,.04); }
+.roulette-outcome { position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:24px; background:rgba(4,4,3,.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+.roulette-outcome[hidden] { display:none; }
+.roulette-outcome-card { width:min(390px,100%); padding:34px 28px 28px; border:1px solid rgba(214,181,101,.55); border-radius:23px; text-align:center; color:#f4ecd9; background:radial-gradient(ellipse at 50% 0,rgba(194,159,80,.13),transparent 60%),linear-gradient(145deg,#1c1a14,#0b0b0a); box-shadow:0 28px 100px rgba(0,0,0,.8),0 0 45px rgba(192,155,70,.12),inset 0 1px rgba(255,255,255,.06); animation:outcomeReveal .34s cubic-bezier(.2,.8,.2,1) both; }
+.outcome-eyebrow { color:#bda768; font-size:10px; font-weight:700; letter-spacing:.24em; }
+.roulette-outcome-card h2 { margin:12px 0 4px; color:#f8f2e4; font:700 28px/1.1 var(--display); }
+.roulette-outcome-card strong { display:block; margin:9px 0 10px; color:#e4c16c; font:700 clamp(38px,10vw,52px)/1 var(--display); text-shadow:0 0 22px rgba(208,171,88,.2); }
+.roulette-outcome[data-result="loss"] .roulette-outcome-card { border-color:rgba(157,75,69,.48); }
+.roulette-outcome[data-result="loss"] .roulette-outcome-card strong { color:#d58b7d; text-shadow:0 0 20px rgba(174,77,67,.15); }
+.roulette-outcome-card p { margin:0 auto 22px; color:#bdb5a4; font-size:13px; line-height:1.6; }
+.roulette-outcome-card .primary-game-button { min-width:200px; }
+@keyframes outcomeReveal { from { opacity:0; transform:translateY(10px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media (max-width:760px) {
   .big-wheel { width:min(96%,390px); margin:17px auto 8px; }
   .roulette-stage { padding:18px 13px 16px; }
   .roulette-result { width:48px; height:48px; }
+  .roulette-outcome { padding:18px; }
+  .roulette-outcome-card { padding:28px 21px 22px; border-radius:20px; }
+  .roulette-outcome-card h2 { font-size:25px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .big-wheel.is-spinning .roulette-ball-svg { animation-duration:.01ms !important; }
+  .roulette-outcome-card { animation:none; }
 }

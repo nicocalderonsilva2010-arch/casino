@@ -32,7 +32,8 @@
     <section class="game-panel roulette-controls"><div class="roulette-table"><div class="number-grid"><button class="bet-cell zero" data-number="0">0</button>${[...Array(12)].flatMap((_,i)=>[3+i*3,2+i*3,1+i*3]).map(n=>`<button class="bet-cell ${red.has(n)?'red':'black'}" data-number="${n}">${n}</button>`).join('')}</div><div class="outside-bets"><button data-number="low">1–18</button><button data-number="even">PAR</button><button class="red" data-number="red">◆</button><button class="black" data-number="black">◆</button><button data-number="odd">IMPAR</button><button data-number="high">19–36</button></div></div>
       <div class="chip-picker">${chips.map((n,i)=>`<button class="casino-chip c${i} ${i===0?'selected':''}" data-chip="${n}">${chipNames[i]}</button>`).join('')}</div>
       <p class="bet-total">APUESTA TOTAL <strong id="bet-total">$0</strong></p><div class="table-actions"><button data-action="undo">Deshacer</button><button data-action="clear">Borrar</button><button data-action="repeat">Repetir</button></div><button class="primary-game-button" data-action="spin" disabled>Girar ruleta <span>↗</span></button>
-    </section><div class="roulette-outcome" id="roulette-outcome" hidden role="status" aria-live="assertive"><div class="roulette-outcome-card"><span class="outcome-eyebrow">CIERRE DE RONDA</span><h2 id="roulette-outcome-title">Resultado</h2><strong id="roulette-net">$0</strong><p id="roulette-outcome-detail"></p><button class="primary-game-button" data-action="outcome-close">Continuar jugando</button></div></div></div>`;
+    </section></div>`;
+  const rouletteOutcome = `<div class="roulette-outcome" id="roulette-outcome" hidden role="status" aria-live="assertive"><div class="roulette-outcome-card"><span class="outcome-eyebrow">CIERRE DE RONDA</span><h2 id="roulette-outcome-title">Resultado</h2><strong id="roulette-net">$0</strong><p id="roulette-outcome-detail"></p><button class="primary-game-button" data-action="outcome-close">Continuar jugando</button></div></div>`;
 
   const slots = () => `<div class="solo-game"><section class="game-panel slots-machine"><div class="game-kicker">NEXUS CASINO · SLOTS</div><h1>Fortuna nocturna</h1><p class="game-subtitle">Tres rodillos. Una oportunidad brillante.</p><div class="reels" id="reels"><i>BAR</i><i>🔔</i><i>🍒</i></div><p class="slot-status" id="slot-status">Tu próxima jugada puede cambiarlo todo.</p><div class="slot-controls"><label>FICHA <select id="slot-bet"><option>10</option><option>100</option><option>1000</option><option>10000</option></select></label><button class="primary-game-button" data-action="slot-spin">Girar rodillos <span>↗</span></button></div><div class="payout-strip"><span>🍒 <b>×35</b></span><span>🔔 <b>×10</b></span><span>⭐ <b>×20</b></span><span>🍋 <b>×3</b></span><span>7️⃣ <b>×200</b></span></div></section></div>`;
 
@@ -53,7 +54,7 @@
     returnScroll = window.scrollY;
     bets = [];
     const title = {slots:'Slots',ruleta:'Ruleta',blackjack:'Blackjack',poker:'Video Poker'}[game] || 'Casino';
-    view.innerHTML = `<header class="game-topbar"><button class="back-to-lobby" data-action="close">‹ <span>Volver al lobby</span></button><a href="#lobby" class="game-brand"><img src="nexus-logo.svg" alt=""><span>NEXUS <b>CASINO</b></span></a><button class="game-top-balance" type="button" data-balance-open>elmanxy <strong data-balance-display>$6.89</strong><span>+</span></button></header><main class="game-main"><div class="game-titlebar"><i></i> MESA DE ${title.toUpperCase()} <span></span> <small>MESA ABIERTA</small></div>${game==='ruleta'?roulette():game==='slots'?slots():game==='blackjack'?blackjack():poker()}</main>`;
+    view.innerHTML = `<header class="game-topbar"><button class="back-to-lobby" data-action="close">‹ <span>Volver al lobby</span></button><a href="#lobby" class="game-brand"><img src="nexus-logo.svg" alt=""><span>NEXUS <b>CASINO</b></span></a><button class="game-top-balance" type="button" data-balance-open>elmanxy <strong data-balance-display>$6.89</strong><span>+</span></button></header><main class="game-main"><div class="game-titlebar"><i></i> MESA DE ${title.toUpperCase()} <span></span> <small>MESA ABIERTA</small></div>${game==='ruleta'?roulette():game==='slots'?slots():game==='blackjack'?blackjack():poker()}</main>${game==='ruleta'?rouletteOutcome:''}`;
     const rouletteBall=view.querySelector('.roulette-ball-svg');
     if(rouletteBall)rouletteBall.style.transform=`rotate(${ballRotation}deg) scaleY(.76)`;
     window.updateCasinoBalanceDisplay?.();
@@ -107,6 +108,7 @@
         result.textContent=n;result.className='roulette-result '+(n===0?'green-text':red.has(n)?'red-text':'black-text');
         const outcome=view.querySelector('#roulette-outcome');
         const net=winningReturn-wager;
+        outcome.dataset.result=net>0?'win':'loss';
         view.querySelector('#roulette-outcome-title').textContent=net>0?'¡Ganaste!':'Perdiste';
         view.querySelector('#roulette-net').textContent=`${net>0?'+':'−'}$${Math.abs(net||wager).toLocaleString('es-CO')}`;
         view.querySelector('#roulette-outcome-detail').textContent=net>0?`Premio acreditado: $${winningReturn.toLocaleString('es-CO')} · Apuesta: $${wager.toLocaleString('es-CO')}`:`La apuesta de $${wager.toLocaleString('es-CO')} se descontó de tu saldo.`;
