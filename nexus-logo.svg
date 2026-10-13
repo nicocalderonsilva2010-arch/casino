@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Nexus">
+  <circle cx="64" cy="64" r="62" fill="#050505"/>
+  <text x="14" y="82" fill="#f5f3ed" font-family="Arial,sans-serif" font-size="48" font-style="italic" font-weight="700" letter-spacing="-6">NEX</text>
+  <ellipse cx="64" cy="65" rx="47" ry="20" transform="rotate(-20 64 65)" fill="none" stroke="#f3f0e8" stroke-width="3.5"/>
+  <path d="m83 31 3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#fff"/>
+</svg>
