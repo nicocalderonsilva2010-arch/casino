@@ -3,6 +3,7 @@ const tabbar = document.getElementById("tabbar");
 const bubble = document.getElementById("bubble");
 const tabs = [...tabbar.querySelectorAll(".tab")];
 const pillLinks = [...document.querySelectorAll(".pill-link")];
+const sideLinks = [...document.querySelectorAll(".side-link")];
 
 function setActive(section) {
   const tab = tabs.find(t => t.dataset.section === section);
@@ -10,6 +11,7 @@ function setActive(section) {
 
   tabs.forEach(t => t.classList.toggle("is-active", t === tab));
   pillLinks.forEach(l => l.classList.toggle("is-active", l.dataset.section === section));
+  sideLinks.forEach(l => l.classList.toggle("is-active", l.dataset.section === section));
 
   // posición del notch = centro del tab activo
   const barRect = tabbar.getBoundingClientRect();
@@ -27,20 +29,25 @@ function setActive(section) {
 
 tabs.forEach(t => t.addEventListener("click", () => setActive(t.dataset.section)));
 pillLinks.forEach(l => l.addEventListener("click", () => setActive(l.dataset.section)));
+sideLinks.forEach(l => l.dataset.section && l.addEventListener("click", () => setActive(l.dataset.section)));
 
 /* ===== Scroll spy: el tab sigue a la sección visible ===== */
 const sections = ["lobby", "juegos", "ranking", "fichas"]
   .map(id => document.getElementById(id))
   .filter(Boolean);
 
-const observer = new IntersectionObserver(
-  entries => {
-    entries.forEach(e => {
-      if (e.isIntersecting) setActive(e.target.id);
-    });
-  },
-  { rootMargin: "-40% 0px -50% 0px" }
-);
+const observer = new IntersectionObserver(() => {
+  if (window.scrollY < 80) {
+    setActive("lobby");
+    return;
+  }
+  const focusY = window.innerHeight * 0.24;
+  const active = sections
+    .map(section => ({ section, rect: section.getBoundingClientRect() }))
+    .filter(item => item.rect.top <= focusY && item.rect.bottom > focusY)
+    .sort((a, b) => Math.abs(a.rect.top - focusY) - Math.abs(b.rect.top - focusY))[0];
+  if (active) setActive(active.section.id);
+}, { rootMargin: "-12% 0px -72% 0px" });
 sections.forEach(s => observer.observe(s));
 
 window.addEventListener("resize", () => {

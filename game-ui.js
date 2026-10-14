@@ -2,10 +2,76 @@
   const view = document.getElementById('game-view');
   const red = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
   const wheel = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
-  let chip = 10, bets = [], lastBets = [], playerHand = [], dealerHand = [], returnFocus = null, returnScroll = 0, roundFinished = true, dealerPlaying = false, viewVersion = 0, ballRotation = 0;
-  const chips = [10,100,1000,10000,100000,1000000];
-  const chipNames = ['10','100','1K','10K','100K','1M'];
+  const rouletteColor = number => number === 0 ? 'green' : red.has(number) ? 'red' : 'black';
+  let chip = 10, bets = [], lastBets = [], recentSpins = [], playerHand = [], dealerHand = [], returnFocus = null, returnScroll = 0, roundFinished = true, dealerPlaying = false, viewVersion = 0, ballRotation = 0;
+  let rouletteAudioContext = null, stopRouletteSound = () => {};
+  const chips = [10,100,1000,10000,100000,1000000,10000000];
+  const chipNames = ['10','100','1K','10K','100K','1M','10M'];
   const cards = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+  const startRouletteSound = () => {
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType) return () => {};
+    try {
+      const context = rouletteAudioContext || (rouletteAudioContext = new AudioContextType());
+      if (context.state === 'suspended') context.resume().catch(() => {});
+      const now = context.currentTime;
+      const master = context.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.8, now + 0.12);
+      master.connect(context.destination);
+
+      const buffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
+      const samples = buffer.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+      const noise = context.createBufferSource();
+      noise.buffer = buffer;
+      noise.loop = true;
+      const filter = context.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.setValueAtTime(700, now);
+      const noiseGain = context.createGain();
+      noiseGain.gain.value = 0.12;
+      noise.connect(filter).connect(noiseGain).connect(master);
+      noise.start(now);
+
+      let stopped = false;
+      let tickTimer;
+      const startedAt = Date.now();
+      const tick = () => {
+        if (stopped) return;
+        const elapsed = Date.now() - startedAt;
+        const oscillator = context.createOscillator();
+        const envelope = context.createGain();
+        const at = context.currentTime;
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(1150 + Math.random() * 450, at);
+        envelope.gain.setValueAtTime(0.0001, at);
+        envelope.gain.exponentialRampToValueAtTime(0.22, at + 0.004);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.045);
+        oscillator.connect(envelope).connect(master);
+        oscillator.start(at);
+        oscillator.stop(at + 0.05);
+        oscillator.addEventListener('ended', () => { oscillator.disconnect(); envelope.disconnect(); }, { once: true });
+        if (elapsed < 6500) tickTimer = window.setTimeout(tick, Math.min(260, 65 + elapsed * 0.03));
+      };
+      tick();
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        window.clearTimeout(tickTimer);
+        const end = context.currentTime;
+        master.gain.cancelScheduledValues(end);
+        master.gain.setTargetAtTime(0.0001, end, 0.08);
+        noise.stop(end + 0.4);
+        window.setTimeout(() => {
+          noise.disconnect(); filter.disconnect(); noiseGain.disconnect(); master.disconnect();
+        }, 600);
+      };
+    } catch (_) {
+      return () => {};
+    }
+  };
   const suits = ['♠','♥','♦','♣'];
 
   const wheelPoint = (radius, angle) => {
@@ -18,16 +84,18 @@
     const start = wheelPoint(184, center - step / 2), end = wheelPoint(184, center + step / 2);
     const innerEnd = wheelPoint(112, center + step / 2), innerStart = wheelPoint(112, center - step / 2);
     const label = wheelPoint(148, center);
-    const color = number === 0 ? '#126b4d' : red.has(number) ? '#9e2334' : '#111210';
+    const color = { green:'#126b4d', red:'#9e2334', black:'#111210' }[rouletteColor(number)];
     const labelRotation = center > 0 && center < 180 ? center + 90 - 180 : center + 90;
     return `<path d="M${start[0].toFixed(2)} ${start[1].toFixed(2)} A184 140 0 0 1 ${end[0].toFixed(2)} ${end[1].toFixed(2)} L${innerEnd[0].toFixed(2)} ${innerEnd[1].toFixed(2)} A112 85 0 0 0 ${innerStart[0].toFixed(2)} ${innerStart[1].toFixed(2)}Z" fill="${color}" stroke="#c6a65e" stroke-opacity=".62" stroke-width="1.2"/><text x="${label[0].toFixed(2)}" y="${label[1].toFixed(2)}" transform="rotate(${labelRotation.toFixed(2)} ${label[0].toFixed(2)} ${label[1].toFixed(2)})" text-anchor="middle" dominant-baseline="central" fill="#f6f0df" font-family="Georgia,serif" font-size="12" font-weight="700">${number}</text>`;
   };
-  const wheelArtwork = () => `<div class="big-wheel"><svg class="roulette-wheel-svg" viewBox="0 0 420 330" role="img" aria-label="Ruleta europea con treinta y siete casillas"><g class="wheel-face"><ellipse cx="210" cy="160" rx="201" ry="153" fill="#080807" stroke="#b9964b" stroke-width="3"/><ellipse cx="210" cy="160" rx="194" ry="147" fill="#171510" stroke="#f0d581" stroke-width="2"/>${wheel.map(wheelSector).join('')}<ellipse cx="210" cy="160" rx="113" ry="86" fill="#090908" stroke="#f0d581" stroke-width="4"/><ellipse cx="210" cy="160" rx="101" ry="76" fill="#17140e" stroke="#8d7138" stroke-width="2"/><path d="M210 88L210 232M117 160H303M144 106L276 214M144 214L276 106" stroke="#b9964b" stroke-opacity=".72" stroke-width="4"/><ellipse cx="210" cy="160" rx="25" ry="20" fill="#090908" stroke="#f0d581" stroke-width="5"/><ellipse cx="210" cy="160" rx="12" ry="9" fill="#d9bb70"/></g><circle class="roulette-ball-svg" cx="210" cy="27" r="7" fill="#fff8e4" stroke="#bb984f" stroke-width="2"/></svg></div>`;
+  // La bola recorre el centro radial de las casillas (radio 148; radio vertical 112 tras la perspectiva).
+  const wheelArtwork = () => `<div class="big-wheel"><svg class="roulette-wheel-svg" viewBox="0 0 420 330" role="img" aria-label="Ruleta europea con treinta y siete casillas"><g class="wheel-face"><ellipse cx="210" cy="160" rx="201" ry="153" fill="#080807" stroke="#b9964b" stroke-width="3"/><ellipse cx="210" cy="160" rx="194" ry="147" fill="#171510" stroke="#f0d581" stroke-width="2"/>${wheel.map(wheelSector).join('')}<ellipse cx="210" cy="160" rx="113" ry="86" fill="#090908" stroke="#f0d581" stroke-width="4"/><ellipse cx="210" cy="160" rx="101" ry="76" fill="#17140e" stroke="#8d7138" stroke-width="2"/><path d="M210 88L210 232M117 160H303M144 106L276 214M144 214L276 106" stroke="#b9964b" stroke-opacity=".72" stroke-width="4"/><ellipse cx="210" cy="160" rx="25" ry="20" fill="#090908" stroke="#f0d581" stroke-width="5"/><ellipse cx="210" cy="160" rx="12" ry="9" fill="#d9bb70"/></g><circle class="roulette-ball-svg" cx="210" cy="12" r="7" fill="#fff8e4" stroke="#bb984f" stroke-width="2"/></svg></div>`;
 
   const roulette = () => `<div class="roulette-layout">
     <section class="game-panel roulette-stage"><div class="game-kicker">MESA EUROPEA · NEXUS</div><h1>Ruleta europea</h1><p class="game-subtitle">37 casillas · Un solo cero</p>
       ${wheelArtwork()}
       <div class="roulette-result" id="roulette-result">—</div><p class="stage-hint">Pon fichas en la mesa y gira</p>
+      <div class="roulette-history" aria-label="Últimos resultados"><span>ÚLTIMOS GIROS</span><div id="roulette-history-list">${recentSpins.map(spin=>`<i class="${spin.color}-text">${spin.number}</i>`).join('')}${Array.from({length:8-recentSpins.length},()=>'<i class="empty">·</i>').join('')}</div></div>
     </section>
     <section class="game-panel roulette-controls"><div class="roulette-table"><div class="number-grid"><button class="bet-cell zero" data-number="0">0</button>${[...Array(12)].flatMap((_,i)=>[3+i*3,2+i*3,1+i*3]).map(n=>`<button class="bet-cell ${red.has(n)?'red':'black'}" data-number="${n}">${n}</button>`).join('')}</div><div class="outside-bets"><button data-number="low">1–18</button><button data-number="even">PAR</button><button class="red" data-number="red">◆</button><button class="black" data-number="black">◆</button><button data-number="odd">IMPAR</button><button data-number="high">19–36</button></div></div>
       <div class="chip-picker">${chips.map((n,i)=>`<button class="casino-chip c${i} ${i===0?'selected':''}" data-chip="${n}">${chipNames[i]}</button>`).join('')}</div>
@@ -76,7 +144,7 @@
   view.addEventListener('click', event => {
     const button=event.target.closest('button'); if(!button) return;
     const action=button.dataset.action;
-    if(action==='close'){view.hidden=true;document.body.classList.remove('game-open');[...document.body.children].forEach(element=>{element.inert=false;});window.scrollTo({top:returnScroll,behavior:'auto'});if(returnFocus?.focus)returnFocus.focus();return;}
+    if(action==='close'){stopRouletteSound();stopRouletteSound=()=>{};view.hidden=true;document.body.classList.remove('game-open');[...document.body.children].forEach(element=>{element.inert=false;});window.scrollTo({top:returnScroll,behavior:'auto'});if(returnFocus?.focus)returnFocus.focus();return;}
     if(action==='outcome-close'){const outcome=view.querySelector('#roulette-outcome');outcome.hidden=true;view.querySelector('[data-action="spin"]')?.focus();return;}
     if(button.dataset.chip){chip=Number(button.dataset.chip);view.querySelectorAll('[data-chip]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.chip)===chip));view.querySelectorAll('[data-current-bet]').forEach(node=>node.textContent=chip.toLocaleString('es-CO'));return;}
     if(button.dataset.number){bets.push({number:button.dataset.number,amount:chip});paintBets();total();return;}
@@ -90,22 +158,36 @@
       if(!window.placeCasinoWager?.(wager)){document.querySelector('.stage-hint').textContent='Saldo insuficiente. Toca tu saldo para agregar fichas.';return;}
       const token=viewVersion,wheelEl=view.querySelector('.big-wheel'),ballEl=view.querySelector('.roulette-ball-svg'),spinButton=button,n=Math.floor(Math.random()*37);
       lastBets=roundBets.map(bet=>({...bet}));
-      const desiredAngle=(wheel.indexOf(n)*(360/wheel.length))%360;
-      const stopAngle=ballRotation+1800+((desiredAngle-(ballRotation%360)+360)%360);
+      // Alinea el centro de la casilla ganadora con el punto superior de la rueda.
+      // El giro extra mantiene siempre varias vueltas completas antes de caer.
+      const sectorAngle=360/wheel.length;
+      const desiredAngle=(wheel.indexOf(n)*sectorAngle)%360;
+      const currentAngle=((ballRotation%360)+360)%360;
+      const alignment=(desiredAngle-currentAngle+360)%360;
+      const stopAngle=ballRotation+2160+alignment;
       wheelEl.style.setProperty('--ball-stop',`${stopAngle}deg`);
+      stopRouletteSound();
+      stopRouletteSound=startRouletteSound();
       wheelEl.classList.remove('is-spinning');void wheelEl.offsetWidth;wheelEl.classList.add('is-spinning');
       spinButton.disabled=true;
       view.querySelectorAll('[data-number],[data-chip],[data-action=undo],[data-action=clear],[data-action=repeat]').forEach(control=>control.disabled=true);
       view.querySelector('.stage-hint').textContent='La bola recorre la pista…';
-      window.setTimeout(()=>{
+      let spinFinished=false;
+      const finishSpin=()=>{
+        if(spinFinished)return;
+        spinFinished=true;
+        stopRouletteSound();stopRouletteSound=()=>{};
+        const color=rouletteColor(n);
         const winningReturn=roundBets.reduce((total,bet)=>{
-          const hit=bet.number===String(n)||(bet.number==='red'&&red.has(n))||(bet.number==='black'&&n>0&&!red.has(n))||(bet.number==='even'&&n>0&&n%2===0)||(bet.number==='odd'&&n%2===1)||(bet.number==='low'&&n>0&&n<=18)||(bet.number==='high'&&n>=19);
+          const hit=bet.number===String(n)||(bet.number===color)||(bet.number==='even'&&n>0&&n%2===0)||(bet.number==='odd'&&n%2===1)||(bet.number==='low'&&n>0&&n<=18)||(bet.number==='high'&&n>=19);
           return total+(hit?bet.amount+bet.amount*(/^\d+$/.test(bet.number)?35:1):0);
         },0);
         if(winningReturn)window.creditCasinoPayout?.(winningReturn);
         if(view.hidden||token!==viewVersion)return;
         const result=view.querySelector('#roulette-result');
-        result.textContent=n;result.className='roulette-result '+(n===0?'green-text':red.has(n)?'red-text':'black-text');
+        result.textContent=n;result.className=`roulette-result ${color}-text`;
+        recentSpins.unshift({number:n,color});recentSpins=recentSpins.slice(0,8);
+        view.querySelector('#roulette-history-list').innerHTML=recentSpins.map(spin=>`<i class="${spin.color}-text">${spin.number}</i>`).join('')+Array.from({length:8-recentSpins.length},()=>'<i class="empty">·</i>').join('');
         const outcome=view.querySelector('#roulette-outcome');
         const net=winningReturn-wager;
         outcome.dataset.result=net>0?'win':'loss';
@@ -117,7 +199,11 @@
         view.querySelectorAll('[data-number],[data-chip],[data-action=undo],[data-action=clear],[data-action=repeat]').forEach(control=>control.disabled=false);
         syncSpin();ballRotation=stopAngle;ballEl.style.transform=`rotate(${stopAngle}deg) scaleY(.76)`;wheelEl.classList.remove('is-spinning');
         outcome.querySelector('[data-action="outcome-close"]').focus();
-      },window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?30:6600);
+      };
+      ballEl.addEventListener('animationend',event=>{
+        if(event.animationName==='ballOrbit')finishSpin();
+      },{once:true});
+      window.setTimeout(finishSpin,7200);
       return;
     }
     if(action==='slot-spin'){const wager=Number(document.getElementById('slot-bet').value)||10;window.recordCasinoWager?.(wager);const token=viewVersion,reelView=document.getElementById('reels'),status=document.getElementById('slot-status'),symbols=['🍒','🔔','⭐','🍋','💎','7️⃣','BAR'];reelView.classList.remove('is-spinning');void reelView.offsetWidth;reelView.classList.add('is-spinning');button.disabled=true;window.setTimeout(()=>{if(view.hidden||token!==viewVersion)return;const result=Array.from({length:3},()=>symbols[Math.floor(Math.random()*symbols.length)]);reelView.innerHTML=result.map(s=>`<i>${s}</i>`).join('');reelView.classList.remove('is-spinning');status.textContent=result.every(s=>s===result[0])?'¡Tres iguales! Premio mayor.':'Casi. Prueba otra combinación.';button.disabled=false;},1050);return;}

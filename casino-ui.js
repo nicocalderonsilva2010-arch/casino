@@ -85,6 +85,28 @@
     renderRanking();
   };
 
+  const formatAmountEntry = raw => {
+    const normalized = raw.replace(/[^\d,.]/g, '');
+    const comma = normalized.lastIndexOf(',');
+    const hasDecimal = comma >= 0;
+    const integerRaw = (hasDecimal ? normalized.slice(0, comma) : normalized).replace(/\D/g, '');
+    const decimalRaw = hasDecimal ? normalized.slice(comma + 1).replace(/\D/g, '').slice(0, 2) : '';
+    const integer = integerRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return integer + (hasDecimal ? ',' + decimalRaw : '');
+  };
+  const parseAmountEntry = value => Number(value.replace(/\./g, '').replace(',', '.'));
+  amountInput.addEventListener('input', () => {
+    const caret = amountInput.selectionStart ?? amountInput.value.length;
+    const digitsBeforeCaret = amountInput.value.slice(0, caret).replace(/\D/g, '').length;
+    amountInput.value = formatAmountEntry(amountInput.value);
+    let nextCaret = 0, digitsSeen = 0;
+    while (nextCaret < amountInput.value.length && digitsSeen < digitsBeforeCaret) {
+      if (/\d/.test(amountInput.value[nextCaret])) digitsSeen++;
+      nextCaret++;
+    }
+    amountInput.setSelectionRange(nextCaret, nextCaret);
+  });
+
   document.addEventListener('click', event => {
     if (!event.target.closest('[data-balance-open]')) return;
     error.textContent = '';
@@ -94,13 +116,13 @@
   });
   dialog.querySelector('[data-balance-close]').addEventListener('click', () => dialog.close());
   dialog.querySelectorAll('[data-amount-preset]').forEach(button => button.addEventListener('click', () => {
-    amountInput.value = button.dataset.amountPreset;
+    amountInput.value = formatAmountEntry(button.dataset.amountPreset);
     amountInput.focus();
   }));
 
   form.addEventListener('submit', event => {
     event.preventDefault();
-    const amount = Number(amountInput.value);
+    const amount = parseAmountEntry(amountInput.value);
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(balance + amount)) {
       error.textContent = 'Escribe una cantidad válida mayor que cero.';
       amountInput.focus();
